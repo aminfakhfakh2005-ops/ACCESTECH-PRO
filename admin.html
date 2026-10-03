@@ -1,10 +1,487 @@
-<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>ACCESTECH PRO — Admin</title><link rel="stylesheet" href="admin.css"></head><body>
-<div id="loginView" class="login"><div class="login-card"><div class="brand">ACCESTECH <span>PRO</span></div><p class="eyebrow">ADMIN DASHBOARD</p><h1>Connexion</h1><p>Connectez-vous avec le compte administrateur Supabase.</p><form id="loginForm"><input id="email" type="email" placeholder="Email admin" required><input id="password" type="password" placeholder="Mot de passe" required><button>Se connecter</button><p id="loginMsg"></p></form><a href="index.html">← Retour au site</a></div></div>
-<div id="app" hidden><aside><div class="brand">ACCESTECH <span>PRO</span></div><nav><button data-view="dashboard" class="nav active">📊 Dashboard</button><button data-view="orders" class="nav">📦 Commandes</button><button data-view="products" class="nav">🛍️ Produits</button></nav><div class="side-bottom"><a href="index.html">Voir le site ↗</a><button id="logout">Déconnexion</button></div></aside>
-<main><header><div><p class="eyebrow">ADMINISTRATION</p><h1 id="viewTitle">Dashboard</h1></div><div id="userEmail"></div></header>
-<section id="dashboardView" class="view"><div class="stats"><div><span>Commandes</span><b id="statOrders">0</b></div><div><span>En attente</span><b id="statPending">0</b></div><div><span>Chiffre commandes</span><b id="statRevenue">0 TND</b></div><div><span>Produits actifs</span><b id="statProducts">0</b></div></div><div class="panel"><h2>Dernières commandes</h2><div id="recentOrders"></div></div></section>
-<section id="ordersView" class="view" hidden><div class="toolbar"><input id="orderSearch" placeholder="Rechercher nom, téléphone…"><button id="refreshOrders">Actualiser</button></div><div class="panel table-wrap"><table><thead><tr><th>Date</th><th>Client</th><th>Téléphone</th><th>Produits</th><th>Total</th><th>Statut</th></tr></thead><tbody id="ordersBody"></tbody></table></div></section>
-<section id="productsView" class="view" hidden><div class="toolbar"><input id="productSearch" placeholder="Rechercher un produit…"><button id="addProduct">+ Ajouter un produit</button></div><div class="panel table-wrap"><table><thead><tr><th>Produit</th><th>Catégorie</th><th>Prix</th><th>Actif</th><th>Actions</th></tr></thead><tbody id="productsBody"></tbody></table></div></section>
-</main></div>
-<div id="productModal" class="modal" hidden><div class="modal-card"><button class="x" id="closeProduct">×</button><p class="eyebrow">CATALOGUE</p><h2 id="productModalTitle">Ajouter un produit</h2><form id="productForm"><input id="productId" type="hidden"><label>Nom<input id="pName" required></label><label>Catégorie<select id="pCategory"><option>ACCESSOIRES</option><option>AUDIO</option><option>POWER</option><option>CAR</option><option>RGB</option><option>GADGETS</option><option>GAMING</option></select></label><label>Prix (TND)<input id="pPrice" type="number" min="0" step="0.01" required></label><label>Badge court<input id="pBadge" placeholder="20W, RGB, BT…"></label><label>Image URL<input id="pImage" placeholder="https://…"></label><label>Description<textarea id="pDescription"></textarea></label><label>Ordre<input id="pSort" type="number" value="100"></label><label class="check"><input id="pActive" type="checkbox" checked> Produit visible sur le site</label><button>Enregistrer</button><p id="productMsg"></p></form></div></div>
-<script src="https://yxhcpyridgyuexzierwn.supabase.co/npm/@supabase/supabase-js@2"></script><script src="admin.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>ACCESTECH PRO — Admin</title>
+
+  <link rel="stylesheet" href="admin.css">
+</head>
+
+<body>
+
+  <!-- =========================
+       LOGIN
+  ========================== -->
+
+  <div id="loginView" class="login">
+
+    <div class="login-card">
+
+      <div class="brand">
+        ACCESSTECH <span>PRO</span>
+      </div>
+
+      <p class="eyebrow">
+        ADMIN DASHBOARD
+      </p>
+
+      <h1>
+        Connexion
+      </h1>
+
+      <p>
+        Connectez-vous avec le compte administrateur Supabase.
+      </p>
+
+      <form id="loginForm">
+
+        <input
+          id="email"
+          type="email"
+          placeholder="Email admin"
+          autocomplete="email"
+          required
+        >
+
+        <input
+          id="password"
+          type="password"
+          placeholder="Mot de passe"
+          autocomplete="current-password"
+          required
+        >
+
+        <button type="submit">
+          Se connecter
+        </button>
+
+        <p id="loginMsg"></p>
+
+      </form>
+
+      <a href="index.html">
+        ← Retour au site
+      </a>
+
+    </div>
+
+  </div>
+
+
+  <!-- =========================
+       ADMIN APP
+  ========================== -->
+
+  <div id="app" hidden>
+
+    <!-- SIDEBAR -->
+
+    <aside>
+
+      <div class="brand">
+        ACCESSTECH <span>PRO</span>
+      </div>
+
+      <nav>
+
+        <button
+          data-view="dashboard"
+          class="nav active"
+          type="button">
+          📊 Dashboard
+        </button>
+
+        <button
+          data-view="orders"
+          class="nav"
+          type="button">
+          📦 Commandes
+        </button>
+
+        <button
+          data-view="products"
+          class="nav"
+          type="button">
+          🛍️ Produits
+        </button>
+
+      </nav>
+
+      <div class="side-bottom">
+
+        <a href="index.html">
+          Voir le site ↗
+        </a>
+
+        <button
+          id="logout"
+          type="button">
+          Déconnexion
+        </button>
+
+      </div>
+
+    </aside>
+
+
+    <!-- MAIN -->
+
+    <main>
+
+      <header>
+
+        <div>
+
+          <p class="eyebrow">
+            ADMINISTRATION
+          </p>
+
+          <h1 id="viewTitle">
+            Dashboard
+          </h1>
+
+        </div>
+
+        <div id="userEmail"></div>
+
+      </header>
+
+
+      <!-- =========================
+           DASHBOARD
+      ========================== -->
+
+      <section
+        id="dashboardView"
+        class="view">
+
+        <div class="stats">
+
+          <div>
+            <span>Commandes</span>
+            <b id="statOrders">0</b>
+          </div>
+
+          <div>
+            <span>En attente</span>
+            <b id="statPending">0</b>
+          </div>
+
+          <div>
+            <span>Chiffre commandes</span>
+            <b id="statRevenue">0 TND</b>
+          </div>
+
+          <div>
+            <span>Produits actifs</span>
+            <b id="statProducts">0</b>
+          </div>
+
+        </div>
+
+
+        <div class="panel">
+
+          <h2>
+            Dernières commandes
+          </h2>
+
+          <div id="recentOrders"></div>
+
+        </div>
+
+      </section>
+
+
+      <!-- =========================
+           ORDERS
+      ========================== -->
+
+      <section
+        id="ordersView"
+        class="view"
+        hidden>
+
+        <div class="toolbar">
+
+          <input
+            id="orderSearch"
+            type="search"
+            placeholder="Rechercher nom, téléphone…"
+          >
+
+          <button
+            id="refreshOrders"
+            type="button">
+            Actualiser
+          </button>
+
+        </div>
+
+
+        <div class="panel table-wrap">
+
+          <table>
+
+            <thead>
+
+              <tr>
+                <th>Date</th>
+                <th>Client</th>
+                <th>Téléphone</th>
+                <th>Produits</th>
+                <th>Total</th>
+                <th>Statut</th>
+              </tr>
+
+            </thead>
+
+            <tbody id="ordersBody"></tbody>
+
+          </table>
+
+        </div>
+
+      </section>
+
+
+      <!-- =========================
+           PRODUCTS
+      ========================== -->
+
+      <section
+        id="productsView"
+        class="view"
+        hidden>
+
+        <div class="toolbar">
+
+          <input
+            id="productSearch"
+            type="search"
+            placeholder="Rechercher un produit…"
+          >
+
+          <button
+            id="addProduct"
+            type="button">
+            + Ajouter un produit
+          </button>
+
+        </div>
+
+
+        <div class="panel table-wrap">
+
+          <table>
+
+            <thead>
+
+              <tr>
+                <th>Produit</th>
+                <th>Catégorie</th>
+                <th>Prix</th>
+                <th>Actif</th>
+                <th>Actions</th>
+              </tr>
+
+            </thead>
+
+            <tbody id="productsBody"></tbody>
+
+          </table>
+
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+
+  <!-- =========================
+       PRODUCT MODAL
+  ========================== -->
+
+  <div
+    id="productModal"
+    class="modal"
+    hidden>
+
+    <div class="modal-card">
+
+      <button
+        class="x"
+        id="closeProduct"
+        type="button">
+        ×
+      </button>
+
+      <p class="eyebrow">
+        CATALOGUE
+      </p>
+
+      <h2 id="productModalTitle">
+        Ajouter un produit
+      </h2>
+
+
+      <form id="productForm">
+
+        <input
+          id="productId"
+          type="hidden"
+        >
+
+
+        <label>
+          Nom
+
+          <input
+            id="pName"
+            type="text"
+            required
+          >
+
+        </label>
+
+
+        <label>
+          Catégorie
+
+          <select id="pCategory">
+
+            <option value="ACCESSOIRES">
+              ACCESSOIRES
+            </option>
+
+            <option value="AUDIO">
+              AUDIO
+            </option>
+
+            <option value="POWER">
+              POWER
+            </option>
+
+            <option value="CAR">
+              CAR
+            </option>
+
+            <option value="RGB">
+              RGB
+            </option>
+
+            <option value="GADGETS">
+              GADGETS
+            </option>
+
+            <option value="GAMING">
+              GAMING
+            </option>
+
+          </select>
+
+        </label>
+
+
+        <label>
+          Prix (TND)
+
+          <input
+            id="pPrice"
+            type="number"
+            min="0"
+            step="0.01"
+            required
+          >
+
+        </label>
+
+
+        <label>
+          Badge court
+
+          <input
+            id="pBadge"
+            type="text"
+            placeholder="20W, RGB, BT…"
+          >
+
+        </label>
+
+
+        <label>
+          Image URL
+
+          <input
+            id="pImage"
+            type="url"
+            placeholder="https://…"
+          >
+
+        </label>
+
+
+        <label>
+          Description
+
+          <textarea
+            id="pDescription">
+          </textarea>
+
+        </label>
+
+
+        <label>
+          Ordre
+
+          <input
+            id="pSort"
+            type="number"
+            value="100"
+          >
+
+        </label>
+
+
+        <label class="check">
+
+          <input
+            id="pActive"
+            type="checkbox"
+            checked
+          >
+
+          Produit visible sur le site
+
+        </label>
+
+
+        <button type="submit">
+          Enregistrer
+        </button>
+
+        <p id="productMsg"></p>
+
+      </form>
+
+    </div>
+
+  </div>
+
+
+  <!-- =========================
+       SCRIPTS
+  ========================== -->
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script src="admin.js"></script>
+
+</body>
+
+</html>
