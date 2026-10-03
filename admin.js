@@ -1,3 +1,4 @@
+alert("admin js ok");
 const SUPABASE_URL = 'https://yxhcpyridgyuexzierwn.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_2h2I-n85SCu4MtQzZCXxIw_1U8mzZeQ';
 
