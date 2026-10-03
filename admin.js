@@ -41,7 +41,43 @@ function showApp(session) {
   loadAll();
 }
 
-$('loginForm').onsubmit = async (e) => {
+$('loginForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const email = $('email').value.trim();
+  const password = $('password').value;
+
+  $('loginMsg').textContent = 'Connexion…';
+
+  try {
+    const result = await db.auth.signInWithPassword({
+      email: email,
+      password: password
+    });
+
+    if (result.error) {
+      $('loginMsg').textContent =
+        'Erreur : ' + result.error.message;
+      return;
+    }
+
+    if (result.data && result.data.session) {
+      $('loginMsg').textContent = 'Connexion réussie ✓';
+      showApp(result.data.session);
+      return;
+    }
+
+    $('loginMsg').textContent =
+      'Connexion impossible : aucune session.';
+
+  } catch (error) {
+    console.error(error);
+
+    $('loginMsg').textContent =
+      'Erreur : ' + error.message;
+  }
+});
   e.preventDefault();
 
   const email = $('email').value.trim();
