@@ -1,16 +1,524 @@
-const db=window.supabase.createClient("https://bimttawmwzuzlbzgpbqo.supabase.co","sb_publishable_TTQQPHcHGI_a_47m3k_ujg_AN0MpqDA");
-let cart=JSON.parse(localStorage.getItem("accestech_cart")||"[]");
-const count=document.getElementById("cartCount"),cm=document.getElementById("cartModal"),items=document.getElementById("cartItems"),ct=document.getElementById("cartTotal");
-function render(){count.textContent=cart.reduce((s,x)=>s+x.q,0);let t=0;items.innerHTML=cart.length?cart.map((x,i)=>{t+=x.p*x.q;return `<div class="cart-item"><span>${x.n}<br>${x.p} TND × ${x.q}</span><span><button onclick="chg(${i},-1)">−</button> <button onclick="chg(${i},1)">+</button></span></div>`}).join(""):"<p>Votre panier est vide.</p>";ct.textContent=t+" TND";localStorage.setItem("accestech_cart",JSON.stringify(cart))}
-window.chg=(i,d)=>{cart[i].q+=d;if(cart[i].q<1)cart.splice(i,1);render()};
-function bindProducts(){document.querySelectorAll(".add-btn").forEach(b=>b.onclick=()=>addToCart(b.dataset.product,Number(b.dataset.price)));document.querySelectorAll(".order-btn").forEach(b=>b.onclick=()=>openOrder(b.dataset.product,Number(b.dataset.price),1))}
-function addToCart(n,p){if(Number(p)<=0){alert("Prix à définir pour ce produit. Modifiez-le depuis l'Admin.");return}const existing=cart.find(x=>x.n===n&&x.p===p);if(existing)existing.q++;else cart.push({n,p,q:1});render()}
-document.getElementById("cartLink").onclick=e=>{e.preventDefault();render();cm.hidden=false};document.getElementById("closeCart").onclick=()=>cm.hidden=true;
-const orderModal=document.getElementById("orderModal"),product=document.getElementById("product"),price=document.getElementById("price"),quantity=document.getElementById("quantity"),selectedProduct=document.getElementById("selectedProduct"),orderTotal=document.getElementById("orderTotal"),orderMessage=document.getElementById("orderMessage");
-function openOrder(n,p,q){if(Number(p)<=0){alert("Prix à définir pour ce produit. Modifiez-le depuis l'Admin.");return}product.value=n;price.value=p;quantity.value=q;selectedProduct.textContent=n+" — "+p+" TND";orderTotal.textContent=(p*q)+" TND";orderMessage.textContent="";orderModal.hidden=false}
-document.getElementById("closeOrder").onclick=()=>orderModal.hidden=true;quantity.oninput=()=>orderTotal.textContent=(Number(price.value)*Math.max(1,Number(quantity.value)))+" TND";
-document.getElementById("cartCheckout").onclick=()=>{if(!cart.length)return;let n=cart.map(x=>x.n+" × "+x.q).join(", "),t=cart.reduce((s,x)=>s+x.p*x.q,0);cm.hidden=true;openOrder(n,t,1)};
-document.getElementById("orderForm").onsubmit=async e=>{e.preventDefault();orderMessage.textContent="Enregistrement…";let q=Math.max(1,Number(quantity.value)),p=Number(price.value),g=document.getElementById("governorate").value.trim(),a=document.getElementById("address").value.trim(),n=document.getElementById("notes").value.trim();let r=await db.from("orders").insert([{customer_name:document.getElementById("customer_name").value.trim(),phone:document.getElementById("phone").value.trim(),address:a+" — "+g+(n?" — Note: "+n:""),products:[{name:product.value,quantity:q,unit_price:p}],total:Number((p*q).toFixed(2)),status:"pending"}]);if(r.error)orderMessage.textContent="Erreur lors de l'envoi. Vérifiez la connexion puis réessayez.";else{orderMessage.textContent="Commande confirmée avec succès ✓";cart=[];render()}};
-async function loadProducts(){const grid=document.querySelector('.products');if(!grid)return;const {data,error}=await db.from('products').select('*').eq('active',true).order('sort_order',{ascending:true});if(error||!data||!data.length){bindProducts();return}grid.innerHTML=data.map(p=>{const cls=(p.category||'accessoires').toLowerCase();const visual=p.image_url?`<img src="${escapeAttr(p.image_url)}" alt="${escapeAttr(p.name)}">`:escapeHtml(p.badge||p.category||'TECH');return `<article class="card" data-category="${escapeAttr(p.category)}"><div class="visual ${cls}">${visual}</div><p class="tag">${escapeHtml(p.category)}</p><h3>${escapeHtml(p.name)}</h3><p class="product-desc">${escapeHtml(p.description||'')}</p><div class="bottom"><strong class="price">${Number(p.price)>0?Number(p.price).toFixed(2)+' TND':'Prix à définir'}</strong><div class="product-actions"><button class="add-btn" type="button" data-product="${escapeAttr(p.name)}" data-price="${Number(p.price)}">Ajouter au panier</button><button class="order-btn" type="button" data-product="${escapeAttr(p.name)}" data-price="${Number(p.price)}">Commander</button></div></div></article>`}).join('');bindProducts()}
-function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]))}function escapeAttr(v){return escapeHtml(v).replace(/`/g,'&#96;')}
-render();loadProducts();
+const db = window.supabase.createClient(
+  "https://bimttawmwzuzlbzgpbqo.supabase.co",
+  "sb_publishable_TTQQPHcHGI_a_47m3k_ujg_AN0MpqDA"
+);
+
+let cart = JSON.parse(localStorage.getItem("accestech_cart") || "[]");
+
+const count = document.getElementById("cartCount");
+const cm = document.getElementById("cartModal");
+const items = document.getElementById("cartItems");
+const ct = document.getElementById("cartTotal");
+
+function render() {
+  if (count) {
+    count.textContent = cart.reduce((s, x) => s + x.q, 0);
+  }
+
+  let total = 0;
+
+  if (items) {
+    items.innerHTML = cart.length
+      ? cart.map((x, i) => {
+          total += x.p * x.q;
+
+          return `
+            <div class="cart-item">
+              <span>
+                ${escapeHtml(x.n)}<br>
+                ${x.p.toFixed(2)} TND × ${x.q}
+              </span>
+
+              <span>
+                <button onclick="chg(${i},-1)">−</button>
+                <button onclick="chg(${i},1)">+</button>
+              </span>
+            </div>
+          `;
+        }).join("")
+      : "<p>Votre panier est vide.</p>";
+  }
+
+  if (ct) {
+    ct.textContent = total.toFixed(2) + " TND";
+  }
+
+  localStorage.setItem("accestech_cart", JSON.stringify(cart));
+}
+
+window.chg = (i, d) => {
+  if (!cart[i]) return;
+
+  cart[i].q += d;
+
+  if (cart[i].q < 1) {
+    cart.splice(i, 1);
+  }
+
+  render();
+};
+
+function bindProducts() {
+
+  document.querySelectorAll(".add-btn").forEach(button => {
+    button.onclick = () => {
+      addToCart(
+        button.dataset.product,
+        Number(button.dataset.price)
+      );
+    };
+  });
+
+  document.querySelectorAll(".order-btn").forEach(button => {
+    button.onclick = () => {
+      openOrder(
+        button.dataset.product,
+        Number(button.dataset.price),
+        1
+      );
+    };
+  });
+}
+
+function addToCart(name, price) {
+
+  if (Number(price) <= 0) {
+    alert("Prix à définir pour ce produit. Modifiez-le depuis l'Admin.");
+    return;
+  }
+
+  const existing = cart.find(
+    x => x.n === name && x.p === price
+  );
+
+  if (existing) {
+    existing.q++;
+  } else {
+    cart.push({
+      n: name,
+      p: price,
+      q: 1
+    });
+  }
+
+  render();
+}
+
+const cartLink = document.getElementById("cartLink");
+
+if (cartLink) {
+  cartLink.onclick = e => {
+    e.preventDefault();
+    render();
+
+    if (cm) {
+      cm.hidden = false;
+    }
+  };
+}
+
+const closeCart = document.getElementById("closeCart");
+
+if (closeCart) {
+  closeCart.onclick = () => {
+    if (cm) cm.hidden = true;
+  };
+}
+
+
+/* =========================
+   ORDER MODAL
+========================= */
+
+const orderModal = document.getElementById("orderModal");
+const product = document.getElementById("product");
+const price = document.getElementById("price");
+const quantity = document.getElementById("quantity");
+const selectedProduct = document.getElementById("selectedProduct");
+const orderTotal = document.getElementById("orderTotal");
+const orderMessage = document.getElementById("orderMessage");
+
+function openOrder(name, productPrice, qty) {
+
+  if (Number(productPrice) <= 0) {
+    alert("Prix à définir pour ce produit. Modifiez-le depuis l'Admin.");
+    return;
+  }
+
+  if (product) product.value = name;
+  if (price) price.value = productPrice;
+  if (quantity) quantity.value = qty;
+
+  if (selectedProduct) {
+    selectedProduct.textContent =
+      name + " — " + productPrice.toFixed(2) + " TND";
+  }
+
+  if (orderTotal) {
+    orderTotal.textContent =
+      (productPrice * qty).toFixed(2) + " TND";
+  }
+
+  if (orderMessage) {
+    orderMessage.textContent = "";
+  }
+
+  if (orderModal) {
+    orderModal.hidden = false;
+  }
+}
+
+const closeOrder = document.getElementById("closeOrder");
+
+if (closeOrder) {
+  closeOrder.onclick = () => {
+    if (orderModal) orderModal.hidden = true;
+  };
+}
+
+if (quantity) {
+  quantity.oninput = () => {
+
+    const p = Number(price?.value || 0);
+    const q = Math.max(1, Number(quantity.value || 1));
+
+    if (orderTotal) {
+      orderTotal.textContent =
+        (p * q).toFixed(2) + " TND";
+    }
+  };
+}
+
+
+/* =========================
+   CART CHECKOUT
+========================= */
+
+const cartCheckout = document.getElementById("cartCheckout");
+
+if (cartCheckout) {
+
+  cartCheckout.onclick = () => {
+
+    if (!cart.length) {
+      alert("Votre panier est vide.");
+      return;
+    }
+
+    const names = cart
+      .map(x => `${x.n} × ${x.q}`)
+      .join(", ");
+
+    const total = cart.reduce(
+      (s, x) => s + x.p * x.q,
+      0
+    );
+
+    if (cm) cm.hidden = true;
+
+    openOrder(names, total, 1);
+  };
+}
+
+
+/* =========================
+   SEND ORDER
+========================= */
+
+const orderForm = document.getElementById("orderForm");
+
+if (orderForm) {
+
+  orderForm.onsubmit = async e => {
+
+    e.preventDefault();
+
+    if (orderMessage) {
+      orderMessage.textContent = "Enregistrement…";
+    }
+
+    const q = Math.max(
+      1,
+      Number(quantity?.value || 1)
+    );
+
+    const p = Number(
+      price?.value || 0
+    );
+
+    const governorate =
+      document.getElementById("governorate")?.value.trim() || "";
+
+    const address =
+      document.getElementById("address")?.value.trim() || "";
+
+    const notes =
+      document.getElementById("notes")?.value.trim() || "";
+
+    const customerName =
+      document.getElementById("customer_name")?.value.trim() || "";
+
+    const phone =
+      document.getElementById("phone")?.value.trim() || "";
+
+
+    const orderData = {
+      customer_name: customerName,
+      phone: phone,
+      address:
+        address +
+        (governorate ? " — " + governorate : "") +
+        (notes ? " — Note: " + notes : ""),
+
+      products: [
+        {
+          name: product?.value || "",
+          quantity: q,
+          unit_price: p
+        }
+      ],
+
+      total: Number((p * q).toFixed(2)),
+      status: "pending"
+    };
+
+
+    const { error } = await db
+      .from("orders")
+      .insert([orderData]);
+
+
+    if (error) {
+
+      console.error("ORDER ERROR:", error);
+
+      if (orderMessage) {
+        orderMessage.textContent =
+          "Erreur lors de l'envoi. Vérifiez les informations puis réessayez.";
+      }
+
+      return;
+    }
+
+
+    if (orderMessage) {
+      orderMessage.textContent =
+        "Commande confirmée avec succès ✓";
+    }
+
+    cart = [];
+
+    render();
+  };
+}
+
+
+/* =========================
+   LOAD PRODUCTS FROM SUPABASE
+========================= */
+
+async function loadProducts() {
+
+  const grid = document.querySelector(".products");
+
+  if (!grid) return;
+
+
+  const {
+    data,
+    error
+  } = await db
+    .from("products")
+    .select(
+      "id,name,description,price,image_url,category,stock,active,created_at"
+    )
+    .eq("active", true)
+    .order("created_at", {
+      ascending: true
+    });
+
+
+  if (error) {
+
+    console.error(
+      "PRODUCTS ERROR:",
+      error
+    );
+
+    bindProducts();
+
+    return;
+  }
+
+
+  if (!data || !data.length) {
+
+    grid.innerHTML =
+      "<p>Aucun produit disponible.</p>";
+
+    return;
+  }
+
+
+  grid.innerHTML = data.map(p => {
+
+    const category =
+      p.category || "Accessoires";
+
+    const cls =
+      category
+        .toLowerCase()
+        .replace(/\s+/g, "-");
+
+
+    let visual = "";
+
+    if (p.image_url) {
+
+      visual = `
+        <img
+          src="${escapeAttr(p.image_url)}"
+          alt="${escapeAttr(p.name)}"
+          loading="lazy"
+        >
+      `;
+
+    } else {
+
+      visual = `
+        <span>
+          ${escapeHtml(category)}
+        </span>
+      `;
+    }
+
+
+    const productPrice =
+      Number(p.price || 0);
+
+    const stock =
+      Number(p.stock || 0);
+
+
+    const unavailable =
+      stock <= 0 || productPrice <= 0;
+
+
+    return `
+      <article
+        class="card"
+        data-category="${escapeAttr(category)}"
+      >
+
+        <div class="visual ${escapeAttr(cls)}">
+          ${visual}
+        </div>
+
+        <p class="tag">
+          ${escapeHtml(category)}
+        </p>
+
+        <h3>
+          ${escapeHtml(p.name)}
+        </h3>
+
+        <p class="product-desc">
+          ${escapeHtml(p.description || "")}
+        </p>
+
+        <div class="bottom">
+
+          <strong class="price">
+            ${
+              productPrice > 0
+                ? productPrice.toFixed(2) + " TND"
+                : "Prix à définir"
+            }
+          </strong>
+
+          <div class="product-actions">
+
+            ${
+              unavailable
+                ? `
+                  <button
+                    class="add-btn"
+                    type="button"
+                    disabled
+                  >
+                    ${
+                      stock <= 0
+                        ? "Rupture de stock"
+                        : "Prix à définir"
+                    }
+                  </button>
+                `
+                : `
+                  <button
+                    class="add-btn"
+                    type="button"
+                    data-product="${escapeAttr(p.name)}"
+                    data-price="${productPrice}"
+                  >
+                    Ajouter au panier
+                  </button>
+
+                  <button
+                    class="order-btn"
+                    type="button"
+                    data-product="${escapeAttr(p.name)}"
+                    data-price="${productPrice}"
+                  >
+                    Commander
+                  </button>
+                `
+            }
+
+          </div>
+
+        </div>
+
+      </article>
+    `;
+
+  }).join("");
+
+
+  bindProducts();
+}
+
+
+/* =========================
+   SECURITY / HTML ESCAPE
+========================= */
+
+function escapeHtml(value) {
+
+  return String(value ?? "")
+    .replace(
+      /[&<>'"]/g,
+      character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        '"': "&quot;"
+      })[character]
+    );
+}
+
+
+function escapeAttr(value) {
+
+  return escapeHtml(value)
+    .replace(/`/g, "&#96;");
+}
+
+
+/* =========================
+   START
+========================= */
+
+render();
+
+loadProducts();
