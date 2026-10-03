@@ -1,4 +1,3 @@
-alert("ADMIN JS WORKS");
 const SUPABASE_URL = 'https://yxhcpyridgyuexzierwn.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_2h2I-n85SCu4MtQzZCXxIw_1U8mzZeQ';
 
@@ -30,6 +29,27 @@ $('loginForm').onsubmit = async e => {
   e.preventDefault();
 
   $('loginMsg').textContent = 'Connexion…';
+  console.log('Tentative de connexion...');
+  console.log('Email:', $('email').value);
+
+  const { data, error } = await db.auth.signInWithPassword({
+    email: $('email').value.trim(),
+    password: $('password').value
+  });
+
+  console.log('Auth result:', data);
+  console.log('Auth error:', error);
+
+  if (error) {
+    $('loginMsg').textContent =
+      'Erreur: ' + error.message;
+    return;
+  }
+
+  $('loginMsg').textContent = 'Connexion réussie ✓';
+
+  showApp(data.session);
+};
 
   const { data, error } = await db.auth.signInWithPassword({
     email: $('email').value,
