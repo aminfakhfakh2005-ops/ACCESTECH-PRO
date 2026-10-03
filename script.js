@@ -329,12 +329,13 @@ if (orderForm) {
        CREATE ORDER ITEM
     ========================= */
 
-    const orderItem = {
-      order_id: order.id,
-      product_name: product?.value || "",
-      quantity: q,
-      unit_price: p
-    };
+const orderItem = {
+  order_id: order.id,
+  product_name: product?.value || "",
+  price: p,
+  quantity: q,
+  subtotal: Number((p * q).toFixed(2))
+};
 
 
     const {
