@@ -1,18 +1,31 @@
 const SUPABASE_URL = 'https://yxhcpyridgyuexzierwn.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_2h2I-n85SCu4MtQzZCXxIw_1U8mzZeQ';
 
-const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const db = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
 
-const $ = id => document.getElementById(id);
+const $ = (id) => document.getElementById(id);
 
 let orders = [];
 let products = [];
 
-async function boot() {
-  const { data: { session } } = await db.auth.getSession();
+/* =========================
+   AUTH / LOGIN
+========================= */
 
-  if (session) {
-    showApp(session);
+async function boot() {
+  const { data, error } = await db.auth.getSession();
+
+  if (error) {
+    console.error('Session error:', error);
+    $('loginMsg').textContent = 'Erreur de connexion à Supabase.';
+    return;
+  }
+
+  if (data.session) {
+    showApp(data.session);
   } else {
     $('loginView').hidden = false;
   }
@@ -21,7 +34,9 @@ async function boot() {
 function showApp(session) {
   $('loginView').hidden = true;
   $('app').hidden = false;
+
   $('userEmail').textContent = session.user.email || '';
+
   loadAll();
 }
 
@@ -33,16 +48,13 @@ $('loginForm').onsubmit = async (e) => {
 
   $('loginMsg').textContent = 'Connexion…';
 
-  console.log('LOGIN START');
-  console.log('Email:', email);
-
   try {
     const { data, error } = await db.auth.signInWithPassword({
       email: email,
       password: password
     });
 
-    console.log('LOGIN RESULT:', data);
+    console.log('LOGIN DATA:', data);
     console.log('LOGIN ERROR:', error);
 
     if (error) {
@@ -50,59 +62,30 @@ $('loginForm').onsubmit = async (e) => {
       return;
     }
 
-    if (data.session) {
-      showApp(data.session);
-    } else {
+    if (!data.session) {
       $('loginMsg').textContent = 'Connexion sans session.';
+      return;
     }
+
+    $('loginMsg').textContent = '';
+
+    showApp(data.session);
 
   } catch (err) {
     console.error('LOGIN EXCEPTION:', err);
     $('loginMsg').textContent = 'Erreur : ' + err.message;
   }
 };
-  e.preventDefault();
-
-  $('loginMsg').textContent = 'Connexion…';
-  console.log('Tentative de connexion...');
-  console.log('Email:', $('email').value);
-
-  const { data, error } = await db.auth.signInWithPassword({
-    email: $('email').value.trim(),
-    password: $('password').value
-  });
-
-  console.log('Auth result:', data);
-  console.log('Auth error:', error);
-
-  if (error) {
-    $('loginMsg').textContent =
-      'Erreur: ' + error.message;
-    return;
-  }
-
-  $('loginMsg').textContent = 'Connexion réussie ✓';
-
-  showApp(data.session);
-};
-
-  const { data, error } = await db.auth.signInWithPassword({
-    email: $('email').value,
-    password: $('password').value
-  });
-
-  if (error) {
-    $('loginMsg').textContent = 'Email ou mot de passe incorrect.';
-    return;
-  }
-
-  showApp(data.session);
-};
 
 $('logout').onclick = async () => {
   await db.auth.signOut();
   location.reload();
 };
+
+
+/* =========================
+   LOAD DATA
+========================= */
 
 async function loadAll() {
   await Promise.all([
@@ -113,6 +96,11 @@ async function loadAll() {
   renderDashboard();
 }
 
+
+/* =========================
+   ORDERS
+========================= */
+
 async function loadOrders() {
   const { data, error } = await db
     .from('orders')
@@ -122,109 +110,41 @@ async function loadOrders() {
   if (error) {
     console.error('Orders error:', error);
     orders = [];
-  } else {
-    orders = data || [];
+    $('ordersBody').innerHTML =
+      '<tr><td colspan="6" class="empty">Erreur de chargement des commandes.</td></tr>';
+    return;
   }
+
+  orders = data || [];
 
   renderOrders();
 }
 
-async function loadProducts() {
-  const { data, error } = await db
-    .from('products')
-    .select('*')
-    .order('created_at', { ascending: true });
-
-  if (error) {
-    console.error('Products error:', error);
-    products = [];
-  } else {
-    products = data || [];
-  }
-
-  renderProducts();
-}
-
-function money(v) {
-  return `${Number(v || 0).toFixed(2)} TND`;
-}
-
-function renderDashboard() {
-  $('statOrders').textContent = orders.length;
-
-  $('statPending').textContent =
-    orders.filter(x => x.status === 'pending').length;
-
-  $('statRevenue').textContent =
-    money(
-      orders.reduce(
-        (s, x) => s + Number(x.total || 0),
-        0
-      )
-    );
-
-  $('statProducts').textContent =
-    products.filter(x => x.active !== false).length;
-
-  $('recentOrders').innerHTML =
-    orders.slice(0, 6).map(orderRow).join('') ||
-    '<div class="empty">Aucune commande.</div>';
-}
-
-function orderRow(o) {
-  const date = o.created_at
-    ? new Date(o.created_at).toLocaleString('fr-FR')
-    : '';
-
-  const prods = Array.isArray(o.products)
-    ? o.products
-        .map(p => `${p.name} × ${p.quantity}`)
-        .join(', ')
-    : '';
-
-  return `
-    <div class="recent">
-      <b>${escapeHtml(o.customer_name || 'Client')}</b>
-      <span>
-        ${escapeHtml(o.phone || '')} · ${money(o.total)}
-      </span>
-      <small>
-        ${escapeHtml(prods)} · ${escapeHtml(date)}
-      </small>
-    </div>
-  `;
-}
 
 function renderOrders() {
   const q = ($('orderSearch')?.value || '').toLowerCase();
 
-  const filtered = orders.filter(o =>
-    `${o.customer_name || ''} ${o.phone || ''}`
+  const filtered = orders.filter((o) => {
+    return `${o.customer_name || ''} ${o.phone || ''}`
       .toLowerCase()
-      .includes(q)
-  );
+      .includes(q);
+  });
 
   $('ordersBody').innerHTML =
-    filtered.map(o => {
+    filtered.map((o) => {
 
-      const prods = Array.isArray(o.products)
-        ? o.products
-            .map(
-              p =>
-                `${escapeHtml(p.name)} × ${p.quantity}`
-            )
-            .join('<br>')
+      const productsText = Array.isArray(o.products)
+        ? o.products.map((p) =>
+            `${escapeHtml(p.name || '')} × ${p.quantity || 1}`
+          ).join('<br>')
         : '';
 
       return `
         <tr>
           <td>
-            ${
-              o.created_at
-                ? new Date(o.created_at)
-                    .toLocaleString('fr-FR')
-                : ''
-            }
+            ${o.created_at
+              ? new Date(o.created_at).toLocaleString('fr-FR')
+              : ''}
           </td>
 
           <td>
@@ -238,7 +158,7 @@ function renderOrders() {
           </td>
 
           <td>
-            ${prods}
+            ${productsText}
           </td>
 
           <td>
@@ -246,10 +166,7 @@ function renderOrders() {
           </td>
 
           <td>
-            <select
-              class="status"
-              data-order="${o.id}"
-            >
+            <select class="status" data-order="${o.id}">
               <option value="pending"
                 ${o.status === 'pending' ? 'selected' : ''}>
                 Nouveau
@@ -281,7 +198,7 @@ function renderOrders() {
     }).join('') ||
     '<tr><td colspan="6" class="empty">Aucune commande.</td></tr>';
 
-  document.querySelectorAll('[data-order]').forEach(select => {
+  document.querySelectorAll('[data-order]').forEach((select) => {
 
     select.onchange = async () => {
 
@@ -295,143 +212,113 @@ function renderOrders() {
         .eq('id', id);
 
       if (error) {
-        alert('Erreur lors de la mise à jour.');
-        console.error(error);
+        console.error('Status update error:', error);
+        alert('Impossible de modifier le statut.');
         return;
       }
 
       await loadOrders();
       renderDashboard();
     };
-
   });
 }
 
+
+/* =========================
+   PRODUCTS
+========================= */
+
+async function loadProducts() {
+
+  const { data, error } = await db
+    .from('products')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Products error:', error);
+
+    products = [];
+
+    $('productsBody').innerHTML =
+      '<tr><td colspan="5" class="empty">Erreur de chargement des produits.</td></tr>';
+
+    return;
+  }
+
+  products = data || [];
+
+  renderProducts();
+}
+
+
 function renderProducts() {
 
-  const q =
-    ($('productSearch')?.value || '').toLowerCase();
+  const q = ($('productSearch')?.value || '').toLowerCase();
 
-  const filtered = products.filter(p =>
-    `${p.name || ''} ${p.category || ''}`
+  const filtered = products.filter((p) => {
+
+    return `${p.name || ''} ${p.category || ''}`
       .toLowerCase()
-      .includes(q)
-  );
+      .includes(q);
+
+  });
 
   $('productsBody').innerHTML =
-    filtered.map(p => `
-      <tr>
+    filtered.map((p) => {
 
-        <td>
-          <b>${escapeHtml(p.name)}</b>
-          <br>
-          <small>
-            ${escapeHtml(p.description || '')}
-          </small>
-        </td>
+      return `
+        <tr>
 
-        <td>
-          ${escapeHtml(p.category || '')}
-        </td>
+          <td>
+            <b>${escapeHtml(p.name || '')}</b>
+            <br>
+            <small>${escapeHtml(p.description || '')}</small>
+          </td>
 
-        <td>
-          ${money(p.price)}
-        </td>
+          <td>
+            ${escapeHtml(p.category || '')}
+          </td>
 
-        <td>
-          ${p.active !== false ? 'Oui' : 'Non'}
-        </td>
+          <td>
+            ${money(p.price)}
+          </td>
 
-        <td class="actions-cell">
+          <td>
+            ${p.active !== false ? 'Oui' : 'Non'}
+          </td>
 
-          <button
-            class="small-btn"
-            onclick="editProduct('${p.id}')">
-            Modifier
-          </button>
+          <td class="actions-cell">
 
-          <button
-            class="small-btn danger"
-            onclick="deleteProduct('${p.id}')">
-            Supprimer
-          </button>
+            <button
+              class="small-btn"
+              onclick="editProduct('${p.id}')">
+              Modifier
+            </button>
 
-        </td>
+            <button
+              class="small-btn danger"
+              onclick="deleteProduct('${p.id}')">
+              Supprimer
+            </button>
 
-      </tr>
-    `).join('') ||
+          </td>
+
+        </tr>
+      `;
+
+    }).join('') ||
     '<tr><td colspan="5" class="empty">Aucun produit.</td></tr>';
 }
 
-window.editProduct = id => {
 
-  const p = products.find(x => x.id === id);
-
-  if (!p) return;
-
-  $('productModalTitle').textContent =
-    'Modifier le produit';
-
-  $('productId').value = p.id;
-
-  $('pName').value = p.name || '';
-
-  $('pCategory').value =
-    p.category || '';
-
-  $('pPrice').value =
-    p.price ?? 0;
-
-  $('pBadge').value =
-    p.badge || '';
-
-  $('pImage').value =
-    p.image_url || '';
-
-  $('pDescription').value =
-    p.description || '';
-
-  if ($('pSort')) {
-    $('pSort').value = 100;
-  }
-
-  $('pActive').checked =
-    p.active !== false;
-
-  $('productMsg').textContent = '';
-
-  $('productModal').hidden = false;
-};
-
-window.deleteProduct = async id => {
-
-  if (!confirm('Supprimer ce produit ?')) {
-    return;
-  }
-
-  const { error } = await db
-    .from('products')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    alert(
-      'Suppression impossible : ' +
-      error.message
-    );
-
-    console.error(error);
-    return;
-  }
-
-  await loadProducts();
-  renderDashboard();
-};
+/* =========================
+   ADD PRODUCT
+========================= */
 
 $('addProduct').onclick = () => {
 
-  $('productModalTitle').textContent =
-    'Ajouter un produit';
+  $('productModalTitle').textContent = 'Ajouter un produit';
 
   $('productForm').reset();
 
@@ -444,11 +331,81 @@ $('addProduct').onclick = () => {
   $('productModal').hidden = false;
 };
 
-$('closeProduct').onclick = () => {
-  $('productModal').hidden = true;
+
+/* =========================
+   EDIT PRODUCT
+========================= */
+
+window.editProduct = (id) => {
+
+  const p = products.find((x) => String(x.id) === String(id));
+
+  if (!p) return;
+
+  $('productModalTitle').textContent = 'Modifier le produit';
+
+  $('productId').value = p.id;
+
+  $('pName').value = p.name || '';
+
+  $('pCategory').value = p.category || '';
+
+  $('pPrice').value = p.price ?? '';
+
+  $('pBadge').value = p.badge || '';
+
+  $('pImage').value = p.image_url || '';
+
+  $('pDescription').value = p.description || '';
+
+  $('pSort').value = 100;
+
+  $('pActive').checked = p.active !== false;
+
+  $('productMsg').textContent = '';
+
+  $('productModal').hidden = false;
 };
 
-$('productForm').onsubmit = async e => {
+
+/* =========================
+   DELETE PRODUCT
+========================= */
+
+window.deleteProduct = async (id) => {
+
+  const ok = confirm('Supprimer ce produit ?');
+
+  if (!ok) return;
+
+  const { error } = await db
+    .from('products')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+
+    console.error('Delete product error:', error);
+
+    alert(
+      'Suppression impossible : ' +
+      error.message
+    );
+
+    return;
+  }
+
+  await loadProducts();
+
+  renderDashboard();
+};
+
+
+/* =========================
+   SAVE PRODUCT
+========================= */
+
+$('productForm').onsubmit = async (e) => {
 
   e.preventDefault();
 
@@ -456,108 +413,181 @@ $('productForm').onsubmit = async e => {
 
   const row = {
 
-    name:
-      $('pName').value.trim(),
+    name: $('pName').value.trim(),
 
-    category:
-      $('pCategory').value.trim(),
+    category: $('pCategory').value,
 
-    image_url:
-      $('pImage').value.trim(),
+    price: Number($('pPrice').value),
 
-    description:
-      $('pDescription').value.trim(),
+    image_url: $('pImage').value.trim(),
 
-    price:
-      Number($('pPrice').value || 0),
+    description: $('pDescription').value.trim(),
 
-    active:
-      $('pActive').checked
+    active: $('pActive').checked
 
   };
 
-  $('productMsg').textContent =
-    'Enregistrement…';
+  $('productMsg').textContent = 'Enregistrement…';
 
-  let r;
+  let result;
 
   if (id) {
 
-    r = await db
+    result = await db
       .from('products')
       .update(row)
       .eq('id', id);
 
   } else {
 
-    r = await db
+    result = await db
       .from('products')
       .insert(row);
 
   }
 
-  if (r.error) {
+  if (result.error) {
+
+    console.error('Product save error:', result.error);
 
     $('productMsg').textContent =
-      'Erreur : ' + r.error.message;
-
-    console.error(r.error);
+      'Erreur : ' + result.error.message;
 
     return;
   }
 
-  $('productMsg').textContent =
-    'Enregistré ✓';
+  $('productMsg').textContent = 'Enregistré ✓';
 
   await loadProducts();
 
   renderDashboard();
 
   setTimeout(() => {
+
     $('productModal').hidden = true;
+
   }, 500);
 };
 
-function escapeHtml(v) {
 
-  return String(v ?? '').replace(
-    /[&<>'"]/g,
-    m => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      "'": '&#39;',
-      '"': '&quot;'
-    }[m])
-  );
+/* =========================
+   CLOSE MODAL
+========================= */
+
+$('closeProduct').onclick = () => {
+
+  $('productModal').hidden = true;
+
+};
+
+
+/* =========================
+   DASHBOARD
+========================= */
+
+function renderDashboard() {
+
+  $('statOrders').textContent =
+    orders.length;
+
+  $('statPending').textContent =
+    orders.filter(
+      (x) => x.status === 'pending'
+    ).length;
+
+  $('statRevenue').textContent =
+    money(
+      orders.reduce(
+        (sum, x) =>
+          sum + Number(x.total || 0),
+        0
+      )
+    );
+
+  $('statProducts').textContent =
+    products.filter(
+      (x) => x.active !== false
+    ).length;
+
+  $('recentOrders').innerHTML =
+    orders
+      .slice(0, 6)
+      .map(orderRow)
+      .join('') ||
+    '<div class="empty">Aucune commande.</div>';
 }
 
-document.querySelectorAll('.nav').forEach(b => {
 
-  b.onclick = () => {
+function orderRow(o) {
+
+  const date = o.created_at
+    ? new Date(o.created_at).toLocaleString('fr-FR')
+    : '';
+
+  const prods = Array.isArray(o.products)
+    ? o.products.map((p) =>
+        `${p.name || ''} × ${p.quantity || 1}`
+      ).join(', ')
+    : '';
+
+  return `
+    <div class="recent">
+
+      <b>
+        ${escapeHtml(o.customer_name || 'Client')}
+      </b>
+
+      <span>
+        ${escapeHtml(o.phone || '')}
+        ·
+        ${money(o.total)}
+      </span>
+
+      <small>
+        ${escapeHtml(prods)}
+        ·
+        ${escapeHtml(date)}
+      </small>
+
+    </div>
+  `;
+}
+
+
+/* =========================
+   NAVIGATION
+========================= */
+
+document.querySelectorAll('.nav').forEach((button) => {
+
+  button.onclick = () => {
 
     document
       .querySelectorAll('.nav')
-      .forEach(x =>
+      .forEach((x) =>
         x.classList.remove('active')
       );
 
-    b.classList.add('active');
+    button.classList.add('active');
 
     document
       .querySelectorAll('.view')
-      .forEach(v => v.hidden = true);
+      .forEach((view) =>
+        view.hidden = true
+      );
 
-    $(b.dataset.view + 'View').hidden = false;
+    const viewName = button.dataset.view;
+
+    $(viewName + 'View').hidden = false;
 
     $('viewTitle').textContent =
-      b.textContent.replace(/^[^ ]+ /, '');
+      button.textContent.replace(/^[^ ]+ /, '');
 
-    if (b.dataset.view === 'orders') {
+    if (viewName === 'orders') {
       renderOrders();
     }
 
-    if (b.dataset.view === 'products') {
+    if (viewName === 'products') {
       renderProducts();
     }
 
@@ -565,16 +595,53 @@ document.querySelectorAll('.nav').forEach(b => {
 
 });
 
-if ($('orderSearch')) {
-  $('orderSearch').oninput = renderOrders;
+
+/* =========================
+   SEARCH / REFRESH
+========================= */
+
+$('orderSearch').oninput = renderOrders;
+
+$('productSearch').oninput = renderProducts;
+
+$('refreshOrders').onclick = async () => {
+
+  await loadOrders();
+
+  renderDashboard();
+
+};
+
+
+/* =========================
+   HELPERS
+========================= */
+
+function money(value) {
+
+  return `${Number(value || 0).toFixed(2)} TND`;
+
 }
 
-if ($('productSearch')) {
-  $('productSearch').oninput = renderProducts;
+
+function escapeHtml(value) {
+
+  return String(value ?? '').replace(
+    /[&<>'"]/g,
+    (m) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
+    }[m])
+  );
+
 }
 
-if ($('refreshOrders')) {
-  $('refreshOrders').onclick = loadOrders;
-}
+
+/* =========================
+   START
+========================= */
 
 boot();
