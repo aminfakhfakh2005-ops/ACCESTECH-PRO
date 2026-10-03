@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://aminfakhfakh2005-ops.github.io/ACCESTECH-PRO/sitemap.xml
