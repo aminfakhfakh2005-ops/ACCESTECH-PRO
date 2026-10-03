@@ -83,7 +83,7 @@ function bindProducts() {
 function addToCart(name, price) {
 
   if (Number(price) <= 0) {
-    alert("Prix à définir pour ce produit. Modifiez-le depuis l'Admin.");
+    alert("Prix à définir pour ce produit.");
     return;
   }
 
@@ -141,7 +141,7 @@ const orderMessage = document.getElementById("orderMessage");
 function openOrder(name, productPrice, qty) {
 
   if (Number(productPrice) <= 0) {
-    alert("Prix à définir pour ce produit. Modifiez-le depuis l'Admin.");
+    alert("Prix à définir pour ce produit.");
     return;
   }
 
@@ -261,6 +261,34 @@ if (orderForm) {
     const phone =
       document.getElementById("phone")?.value.trim() || "";
 
+    /* =========================
+       VALIDATION
+    ========================= */
+
+    if (!customerName || !phone || !governorate || !address) {
+
+      if (orderMessage) {
+        orderMessage.textContent =
+          "Veuillez remplir toutes les informations obligatoires.";
+      }
+
+      return;
+    }
+
+    if (p <= 0 || q <= 0) {
+
+      if (orderMessage) {
+        orderMessage.textContent =
+          "Produit ou quantité invalide.";
+      }
+
+      return;
+    }
+
+
+    /* =========================
+       CREATE ORDER
+    ========================= */
 
     const orderData = {
       customer_name: customerName,
@@ -269,28 +297,24 @@ if (orderForm) {
         address +
         (governorate ? " — " + governorate : "") +
         (notes ? " — Note: " + notes : ""),
-
-      products: [
-        {
-          name: product?.value || "",
-          quantity: q,
-          unit_price: p
-        }
-      ],
-
       total: Number((p * q).toFixed(2)),
       status: "pending"
     };
 
 
-    const { error } = await db
+    const {
+      data: order,
+      error: orderError
+    } = await db
       .from("orders")
-      .insert([orderData]);
+      .insert([orderData])
+      .select("id")
+      .single();
 
 
-    if (error) {
+    if (orderError) {
 
-      console.error("ORDER ERROR:", error);
+      console.error("ORDER ERROR:", orderError);
 
       if (orderMessage) {
         orderMessage.textContent =
@@ -301,6 +325,49 @@ if (orderForm) {
     }
 
 
+    /* =========================
+       CREATE ORDER ITEM
+    ========================= */
+
+    const orderItem = {
+      order_id: order.id,
+      product_name: product?.value || "",
+      quantity: q,
+      unit_price: p
+    };
+
+
+    const {
+      error: itemError
+    } = await db
+      .from("order_items")
+      .insert([orderItem]);
+
+
+    if (itemError) {
+
+      console.error("ORDER ITEM ERROR:", itemError);
+
+      /* محاولة حذف الطلب الرئيسي إذا فشل order_items */
+      await db
+        .from("orders")
+        .delete()
+        .eq("id", order.id);
+
+
+      if (orderMessage) {
+        orderMessage.textContent =
+          "Erreur lors de l'enregistrement des produits de la commande.";
+      }
+
+      return;
+    }
+
+
+    /* =========================
+       SUCCESS
+    ========================= */
+
     if (orderMessage) {
       orderMessage.textContent =
         "Commande confirmée avec succès ✓";
@@ -309,6 +376,9 @@ if (orderForm) {
     cart = [];
 
     render();
+
+    localStorage.removeItem("accestech_cart");
+
   };
 }
 
