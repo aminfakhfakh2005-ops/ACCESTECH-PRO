@@ -25,41 +25,40 @@ function showApp(session) {
   loadAll();
 }
 
-$('loginForm').onsubmit = async e => {
+$('loginForm').onsubmit = async (e) => {
   e.preventDefault();
 
-  const msg = $('loginMsg');
+  const email = $('email').value.trim();
+  const password = $('password').value;
 
-  msg.textContent = 'Test connexion...';
+  $('loginMsg').textContent = 'Connexion…';
+
+  console.log('LOGIN START');
+  console.log('Email:', email);
 
   try {
-    const email = $('email').value.trim();
-    const password = $('password').value;
-
-    if (!email || !password) {
-      msg.textContent = 'Email et mot de passe obligatoires.';
-      return;
-    }
-
-    const result = await db.auth.signInWithPassword({
+    const { data, error } = await db.auth.signInWithPassword({
       email: email,
       password: password
     });
 
-    if (result.error) {
-      msg.textContent = 'Erreur: ' + result.error.message;
+    console.log('LOGIN RESULT:', data);
+    console.log('LOGIN ERROR:', error);
+
+    if (error) {
+      $('loginMsg').textContent = 'Erreur : ' + error.message;
       return;
     }
 
-    if (result.data && result.data.session) {
-      msg.textContent = 'Connexion réussie ✓';
-      showApp(result.data.session);
+    if (data.session) {
+      showApp(data.session);
     } else {
-      msg.textContent = 'Connexion effectuée, mais session introuvable.';
+      $('loginMsg').textContent = 'Connexion sans session.';
     }
 
   } catch (err) {
-    msg.textContent = 'Erreur: ' + err.message;
+    console.error('LOGIN EXCEPTION:', err);
+    $('loginMsg').textContent = 'Erreur : ' + err.message;
   }
 };
   e.preventDefault();
