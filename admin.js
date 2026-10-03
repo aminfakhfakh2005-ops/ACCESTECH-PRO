@@ -28,6 +28,42 @@ function showApp(session) {
 $('loginForm').onsubmit = async e => {
   e.preventDefault();
 
+  const msg = $('loginMsg');
+
+  msg.textContent = 'Test connexion...';
+
+  try {
+    const email = $('email').value.trim();
+    const password = $('password').value;
+
+    if (!email || !password) {
+      msg.textContent = 'Email et mot de passe obligatoires.';
+      return;
+    }
+
+    const result = await db.auth.signInWithPassword({
+      email: email,
+      password: password
+    });
+
+    if (result.error) {
+      msg.textContent = 'Erreur: ' + result.error.message;
+      return;
+    }
+
+    if (result.data && result.data.session) {
+      msg.textContent = 'Connexion réussie ✓';
+      showApp(result.data.session);
+    } else {
+      msg.textContent = 'Connexion effectuée, mais session introuvable.';
+    }
+
+  } catch (err) {
+    msg.textContent = 'Erreur: ' + err.message;
+  }
+};
+  e.preventDefault();
+
   $('loginMsg').textContent = 'Connexion…';
   console.log('Tentative de connexion...');
   console.log('Email:', $('email').value);
