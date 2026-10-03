@@ -1,3 +1,4 @@
+console.log("ACCESTECH SCRIPT LOADED");
 const db = window.supabase.createClient(
   "https://bimttawmwzuzlbzgpbqo.supabase.co",
   "sb_publishable_TTQQPHcHGI_a_47m3k_ujg_AN0MpqDA"
