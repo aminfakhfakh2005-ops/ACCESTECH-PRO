@@ -318,7 +318,7 @@ if (orderForm) {
 
       if (orderMessage) {
         orderMessage.textContent =
-          "Erreur lors de l'envoi. Vérifiez les informations puis réessayez.";
+            "Erreur: " + (orderError.message || "Erreur inconnue");
       }
 
       return;
@@ -358,7 +358,7 @@ const orderItem = {
 
       if (orderMessage) {
         orderMessage.textContent =
-          "Erreur lors de l'enregistrement des produits de la commande.";
+            "Erreur produit: " + (itemError.message || "Erreur inconnue");
       }
 
       return;
