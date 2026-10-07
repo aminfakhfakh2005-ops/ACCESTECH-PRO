@@ -284,106 +284,53 @@ if (orderForm) {
 
       return;
     }
+/* =========================
+   CREATE ORDER + ITEM
+========================= */
 
+const {
+  data: orderId,
+  error: orderError
+} = await db.rpc("create_customer_order", {
+  p_customer_name: customerName,
+  p_phone: phone,
+  p_address: address,
+  p_city: governorate,
+  p_total: Number((p * q).toFixed(2)),
+  p_status: "pending",
+  p_product_name: product?.value || "",
+  p_price: p,
+  p_quantity: q,
+  p_subtotal: Number((p * q).toFixed(2))
+});
 
-    /* =========================
-       CREATE ORDER
-    ========================= */
+if (orderError) {
 
-    const orderData = {
-      customer_name: customerName,
-      phone: phone,
-      address:
-        address +
-        (governorate ? " — " + governorate : "") +
-        (notes ? " — Note: " + notes : ""),
-      total: Number((p * q).toFixed(2)),
-      status: "pending"
-    };
+  console.error("ORDER ERROR:", orderError);
 
+  if (orderMessage) {
+    orderMessage.textContent =
+      "Erreur: " + (orderError.message || "Erreur inconnue");
+  }
 
-    const {
-      data: order,
-      error: orderError
-    } = await db
-      .from("orders")
-      .insert([orderData])
-      .select("id")
-      .single();
-
-
-    if (orderError) {
-
-      console.error("ORDER ERROR:", orderError);
-
-      if (orderMessage) {
-        orderMessage.textContent =
-            "Erreur: " + (orderError.message || "Erreur inconnue");
-      }
-
-      return;
-    }
-
-
-    /* =========================
-       CREATE ORDER ITEM
-    ========================= */
-
-const orderItem = {
-  order_id: order.id,
-  product_name: product?.value || "",
-  price: p,
-  quantity: q,
-  subtotal: Number((p * q).toFixed(2))
-};
-
-
-    const {
-      error: itemError
-    } = await db
-      .from("order_items")
-      .insert([orderItem]);
-
-
-    if (itemError) {
-
-      console.error("ORDER ITEM ERROR:", itemError);
-
-      /* محاولة حذف الطلب الرئيسي إذا فشل order_items */
-      await db
-        .from("orders")
-        .delete()
-        .eq("id", order.id);
-
-
-      if (orderMessage) {
-        orderMessage.textContent =
-            "Erreur produit: " + (itemError.message || "Erreur inconnue");
-      }
-
-      return;
-    }
-
-
-    /* =========================
-       SUCCESS
-    ========================= */
-
-    if (orderMessage) {
-      orderMessage.textContent =
-        "Commande confirmée avec succès ✓";
-    }
-
-    cart = [];
-
-    render();
-
-    localStorage.removeItem("accestech_cart");
-
-  };
+  return;
 }
 
 
+/* =========================
+   SUCCESS
+========================= */
+
+if (orderMessage) {
+  orderMessage.textContent =
+    "Commande confirmée avec succès ✓";
+}
+
+cart = [];
+
+render();
+
+localStorage.removeItem("accestech_cart");
 /* =========================
    LOAD PRODUCTS FROM SUPABASE
 ========================= */
